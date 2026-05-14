@@ -1,21 +1,20 @@
-import express from "express"
-import dotenv from "dotenv"
-import cors from "cors"
-import connectDB from "./src/config/db.js";
-
+import express from 'express';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import connectDB from './src/config/db.js';
 
 dotenv.config();
 
-//mongod db connect 
-connectDB()
+//mongod db connect
+connectDB();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("XRPL Remittance Backend Running...");
+app.get('/', (req, res) => {
+  res.send('XRPL Remittance Backend Running...');
 });
 
 const PORT = process.env.PORT || 5000;
