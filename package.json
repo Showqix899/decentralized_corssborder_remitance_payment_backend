@@ -12,7 +12,10 @@
     "lint": "eslint ."
   },
   "lint-staged": {
-    "*.{js,json,css,md}": "prettier --write"
+    "*.{js,json,css,md}": [
+      "eslint . --fix",
+      "prettier --write"
+    ]
   },
   "keywords": [],
   "author": "",
