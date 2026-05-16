@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "format": "prettier --write .",
     "prepare": "husky",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "emailWorker": "nodemon src/worker/emailWorker.js"
   },
   "lint-staged": {
     "*.{js,json,css,md}": [
@@ -22,11 +23,14 @@
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "bullmq": "^5.76.9",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
+    "nodemailer": "^8.0.7",
     "xrpl": "^4.6.0"
   },
   "devDependencies": {
