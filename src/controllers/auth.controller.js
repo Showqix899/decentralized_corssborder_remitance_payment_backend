@@ -47,7 +47,7 @@ export const registerUser = async (req, res) => {
     });
 
     //create verification link
-    const verificationLink = `${process.env.CLIENT_URL}/verify/${verificationToken}`;
+    const verificationLink = `${process.env.CLIENT_URL}/api/auth/verify/${verificationToken}`;
 
     //add this sending email job to queue
     await emailQueue.add('sendVerificationEmail', {
@@ -154,6 +154,100 @@ export const loginUser = async (req, res) => {
       walletAddress: user.walletAddress,
 
       token: generateJwtToken(user._id),
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+//reset password request
+export const resetPasswordRequest = async (req, res) => {
+  try {
+    const { email } = req.body; //get the email
+
+    //check if the email is realy belong to an account
+    const user = await User.findOne({
+      email: email,
+    });
+
+    if (!user) {
+      return res.status(403).json({
+        message: 'this is not a valid email',
+      });
+    }
+
+    //generate token
+    const resetPassToken = generateToken();
+
+    //verification token
+    const resetPasswordLink = `${process.env.CLIENT_URL}/api/auth/reset-password/${resetPassToken}`;
+
+    //set resetpassword token and expiry time to user db
+    user.resetPasswordToken = resetPassToken;
+    user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; //set 30 min lifetime
+    await user.save(); //save the user
+
+    //send the link via email
+    await emailQueue.add('sendResetPasswordLink', {
+      to: email,
+      subject: 'reset password',
+      html: `
+        <h2>password reset</h2>
+        <p>Click below reset your password</p>
+        <a href = "${resetPasswordLink}">
+        reset password
+        </a>
+        `,
+    });
+
+    return res.status(200).json({
+      message:
+        'a password reset link sent to your email address, please check your mail',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+//password reset
+export const resetPassword = async (req, res) => {
+  try {
+    //get the token from param
+    const { token } = req.params;
+    //get new password from payload
+    const { newPassword } = req.body;
+
+    //check if the token is valid or not
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: {
+        $gt: Date.now(),
+      },
+    });
+
+    if (!user) {
+      return res.status(403).json({
+        message: 'invalid or expired token',
+      });
+    }
+
+    //hash the new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    //user update
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save(); //save the user
+
+    res.status(201).json({
+      message:
+        'your password has been reset. Now try to login with new password',
     });
   } catch (error) {
     res.status(500).json({
