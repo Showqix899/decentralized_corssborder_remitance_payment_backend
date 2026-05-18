@@ -10,6 +10,9 @@ import generateJwtToken from '../utils/jwtgenerator.js';
 //model
 import User from '../models/User.js';
 
+//services
+import { createWallet } from '../services/xrplService.js';
+
 //Register User
 export const registerUser = async (req, res) => {
   try {
@@ -37,6 +40,9 @@ export const registerUser = async (req, res) => {
     //generate verification tokem
     const verificationToken = generateToken();
 
+    //create xrpl wallet
+    const xrplWallet = await createWallet();
+
     //create user
     const user = await User.create({
       name,
@@ -44,6 +50,12 @@ export const registerUser = async (req, res) => {
       password: hashedPassword,
       verificationToken,
       verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
+      wallet: {
+        address: xrplWallet.address,
+        seed: xrplWallet.seed,
+        publicKey: xrplWallet.publicKey,
+        privateKey: xrplWallet.privateKey,
+      },
     });
 
     //create verification link

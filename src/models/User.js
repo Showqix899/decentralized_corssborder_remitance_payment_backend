@@ -32,11 +32,15 @@ const userSchema = new mongoose.Schema(
 
     resetPasswordExpires: Date,
 
-    walletAddress: {
-      type: String,
-      default: '',
-    },
+    wallet: {
+      address: String,
 
+      seed: String,
+
+      publicKey: String,
+
+      privateKey: String,
+    },
     role: {
       type: String,
       enum: ['user', 'admin'],
