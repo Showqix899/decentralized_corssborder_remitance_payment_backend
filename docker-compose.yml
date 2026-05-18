@@ -1,13 +1,11 @@
-
 services:
-
   app:
     build: .
     container_name: xrpl_remittance_system_backend
-    command : npm run dev
+    command: npm run dev
     restart: always
     ports:
-      - "3000:3000"
+      - '3000:3000'
     env_file:
       - .env
     depends_on:
@@ -19,7 +17,7 @@ services:
   email_worker:
     build: .
     container_name: xrpl_email_worker
-    command : npm run emailWorker
+    command: npm run emailWorker
     restart: always
     env_file:
       - .env
@@ -28,10 +26,10 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    
+
   redis:
     image: redis:7-alpine
     container_name: xrpl_redis
     restart: always
     ports:
-      - "6380:6379"
+      - '6380:6379'
