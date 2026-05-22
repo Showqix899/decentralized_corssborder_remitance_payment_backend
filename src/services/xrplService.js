@@ -55,5 +55,14 @@ export const sendXRP = async ({ senderSeed, destination, amount }) => {
 
   const result = await client.submitAndWait(signed.tx_blob);
 
-  return result;
+  //network fees
+  const networkFeeDrops = prepared.Fee;
+
+  const networkFeeXRP = xrpl.dropsToXrp(networkFeeDrops);
+
+  return {
+    result,
+    networkFeeDrops,
+    networkFeeXRP,
+  };
 };

@@ -1,9 +1,15 @@
+//dependencies
 import { Worker } from 'bullmq';
+//config
 import redisConnection from '../config/redis.js';
+//services
 import transporter from '../services/mailServices.js';
+
+//.env loading
 import dotenv from 'dotenv';
 dotenv.config();
 
+//worker logic
 const emailWorker = new Worker(
   'emailQueue',
   async (job) => {

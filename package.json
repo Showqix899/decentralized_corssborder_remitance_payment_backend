@@ -10,7 +10,8 @@
     "format": "prettier --write .",
     "prepare": "husky",
     "lint": "eslint .",
-    "emailWorker": "nodemon src/worker/emailWorker.js"
+    "emailWorker": "nodemon src/worker/emailWorker.js",
+    "xrplPaymentWorker": "nodemon src/worker/xrplPaymentWorker.js"
   },
   "lint-staged": {
     "*.{js,json,css,md}": [

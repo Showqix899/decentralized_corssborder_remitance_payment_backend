@@ -59,7 +59,7 @@ export const registerUser = async (req, res) => {
     });
 
     //create verification link
-    const verificationLink = `${process.env.CLIENT_URL}/api/auth/verify/${verificationToken}`;
+    const verificationLink = `${process.env.CLIENT_URL}/api/auth/verify-email/${verificationToken}`;
 
     //add this sending email job to queue
     await emailQueue.add('sendVerificationEmail', {
