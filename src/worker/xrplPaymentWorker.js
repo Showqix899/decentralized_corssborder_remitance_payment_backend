@@ -1,92 +1,238 @@
-//datenv loading
+// ENV
 import dotenv from 'dotenv';
 dotenv.config();
 
-//dependencies
+// DEPENDENCIES
 import { Worker } from 'bullmq';
+
+// REDIS
 import redisConnection from '../config/redis.js';
 
-//services
-import { sendXRP } from '../services/xrplService.js';
-
-//config
+// DB
 import connectDB from '../config/db.js';
 
-//connect db
-connectDB();
+// SERVICES
+import { sendXRP } from '../services/xrplService.js';
 
-//models
+import {
+  getExchangeInfo,
+  calculateFXFee,
+} from '../services/exchangeRateService.js';
+
+// MODELS
 import User from '../models/User.js';
+
 import Transection from '../models/Transection.js';
 
-//worker logic
+// CONNECT DB
+connectDB();
+
+// WORKER
 const xrplPaymentWorker = new Worker(
   'xrplPaymentQueue',
+
   async (job) => {
-    //get the job data
-    const { receiver, sender, amount } = job.data;
+    try {
+      // JOB DATA
+      const {
+        receiver,
 
-    //initiating timestamp
-    const initiatedAt = new Date();
+        sender,
 
-    const startTime = Date.now();
+        amount,
 
-    //blockchain transfer
-    const transferResult = await sendXRP({
-      senderSeed: sender.wallet.seed,
+        sourceCurrency,
 
-      destination: receiver.wallet.address,
+        destinationCurrency,
+      } = job.data;
 
-      amount,
-    });
+      // REFRESH USERS
+      const freshSender = await User.findById(sender._id);
 
-    //captureing time
-    const completedAt = new Date();
+      const freshReceiver = await User.findById(receiver._id);
 
-    const endTime = Date.now();
+      // USER VALIDATION
+      if (!freshSender) {
+        throw new Error('Sender not found');
+      }
 
-    const processingTimeMs = endTime - startTime;
+      if (!freshReceiver) {
+        throw new Error('Receiver not found');
+      }
 
-    const processingTimeSeconds = processingTimeMs / 1000;
+      // INITIALIZE BALANCES
+      if (!freshSender.balances.has(sourceCurrency)) {
+        freshSender.balances.set(sourceCurrency, 0);
+      }
 
-    //transection txHash
-    const txHash = transferResult.result.result.hash;
+      if (!freshReceiver.balances.has(destinationCurrency)) {
+        freshReceiver.balances.set(destinationCurrency, 0);
+      }
 
-    //ledger
-    const ledgerIndex = transferResult.result.result.validated_ledger_index;
+      // GET LIVE FX DATA
+      const exchangeInfo = await getExchangeInfo(
+        sourceCurrency,
 
-    //network fees
-    const networkFeeDrops = transferResult.networkFeeDrops;
-    const networkFeeXRP = Number(transferResult.networkFeeXRP);
+        destinationCurrency,
 
-    //save transection
-    const transection = await Transection.create({
-      sender: sender._id,
-      receiver: receiver._id,
-      senderAddress: sender.wallet.address,
-      receiverAddress: receiver.wallet.address,
-      amount,
-      currency: 'XRP',
-      txHash,
-      initiatedAt,
-      completedAt,
-      processingTimeMs,
-      processingTimeSeconds,
-      ledgerIndex,
-      networkFeeDrops,
-      networkFeeXRP,
-      status: 'completed',
-    });
+        amount
+      );
+
+      const exchangeRate = exchangeInfo.exchangeRate;
+
+      const convertedAmount = exchangeInfo.convertedAmount;
+
+      // FX FEE
+      const fxFee = calculateFXFee(amount);
+
+      // TOTAL DEDUCTED
+      const totalDeducted = Number(amount) + Number(fxFee);
+
+      // BALANCE CHECK
+      if (freshSender.balances.get(sourceCurrency) < totalDeducted) {
+        throw new Error('Insufficient balance');
+      }
+
+      // TRANSACTION START TIME
+      const initiatedAt = new Date();
+
+      const startTime = Date.now();
+
+      /*
+        IMPORTANT:
+
+        XRPL TRANSFER SHOULD BE XRP.
+
+        So here we simulate settlement
+        using XRP blockchain.
+
+        Later we can build REAL
+        XRP bridge conversion.
+      */
+
+      // BLOCKCHAIN TRANSFER
+      const transferResult = await sendXRP({
+        senderSeed: sender.wallet.seed,
+
+        destination: receiver.wallet.address,
+
+        amount,
+      });
+
+      // TRANSACTION END TIME
+      const completedAt = new Date();
+
+      const endTime = Date.now();
+
+      // PROCESSING TIME
+      const processingTimeMs = endTime - startTime;
+
+      const processingTimeSeconds = processingTimeMs / 1000;
+
+      // UPDATE SENDER BALANCE
+      freshSender.balances.set(
+        sourceCurrency,
+
+        freshSender.balances.get(sourceCurrency) - totalDeducted
+      );
+
+      // UPDATE RECEIVER BALANCE
+      freshReceiver.balances.set(
+        destinationCurrency,
+
+        freshReceiver.balances.get(destinationCurrency) + convertedAmount
+      );
+
+      // SAVE USERS
+      await freshSender.save();
+
+      await freshReceiver.save();
+
+      // XRPL DETAILS
+      const txHash = transferResult.result.result.hash;
+
+      const ledgerIndex = transferResult.result.result.validated_ledger_index;
+
+      const networkFeeDrops = transferResult.networkFeeDrops;
+
+      const networkFeeXRP = Number(transferResult.networkFeeXRP);
+
+      // SAVE TRANSACTION
+      const transection = await Transection.create({
+        sender: freshSender._id,
+
+        receiver: freshReceiver._id,
+
+        senderAddress: freshSender.wallet.address,
+
+        receiverAddress: freshReceiver.wallet.address,
+
+        // ORIGINAL
+        amount,
+
+        // FX DATA
+        sourceCurrency,
+
+        destinationCurrency,
+
+        exchangeRate,
+
+        convertedAmount,
+
+        fxFee,
+
+        totalDeducted,
+
+        // BLOCKCHAIN
+        currency: 'XRP',
+
+        txHash,
+
+        ledgerIndex,
+
+        // FEES
+        networkFeeDrops,
+
+        networkFeeXRP,
+
+        // TIMING
+        initiatedAt,
+
+        completedAt,
+
+        processingTimeMs,
+
+        processingTimeSeconds,
+
+        status: 'completed',
+      });
+
+      console.log('Transaction completed:', transection._id);
+    } catch (error) {
+      console.log('Worker Error:', error.message);
+
+      throw error;
+    }
   },
+
   {
     connection: redisConnection,
   }
 );
 
-xrplPaymentWorker.on('completed', (job) => {
-  console.log(`job ${job.id} has completed !`);
-});
+// EVENTS
+xrplPaymentWorker.on(
+  'completed',
 
-xrplPaymentWorker.on('failed', (job) => {
-  console.log(`job ${job.id} has failed !`);
-});
+  (job) => {
+    console.log(`Job ${job.id} completed`);
+  }
+);
+
+xrplPaymentWorker.on(
+  'failed',
+
+  (job, err) => {
+    console.log(`Job ${job?.id} failed:`, err.message);
+  }
+);

@@ -25,6 +25,12 @@ const transectionSchema = new mongoose.Schema(
     networkFeeDrops: String,
     networkFeeXRP: Number,
     ledgerIndex: String,
+    sourceCurrency: String,
+    destinationCurrency: String,
+    exchangeRate: Number,
+    convertedAmount: Number,
+    fxFee: Number,
+    totalDeducted: Number,
     status: {
       type: String,
       enum: ['pending', 'completed', 'failed'],

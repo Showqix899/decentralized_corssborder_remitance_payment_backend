@@ -46,6 +46,17 @@ const userSchema = new mongoose.Schema(
       enum: ['user', 'admin'],
       default: 'user',
     },
+    balances: {
+      type: Map,
+
+      of: Number,
+
+      default: {
+        USD: 1000,
+        XRP: 1000,
+        BDT: 50000,
+      },
+    },
   },
   {
     timestamps: true,

@@ -14,7 +14,7 @@
     "xrplPaymentWorker": "nodemon src/worker/xrplPaymentWorker.js"
   },
   "lint-staged": {
-    "*.{js,json,css,md}": [
+    "*.{js,css,md}": [
       "eslint . --fix",
       "prettier --write"
     ]
@@ -23,6 +23,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.76.9",
     "cors": "^2.8.6",

@@ -2,16 +2,17 @@
 import User from '../models/User.js';
 import Transection from '../models/Transection.js';
 
-//services
-import { sendXRP } from '../services/xrplService.js';
-
 //queue
 import xrpleQueue from '../queues/sendXrplQueue.js';
+
+//constants
+import supportedCurrencies from '../constants/supportedCurrencies.js';
 
 //send money
 export const sendMoney = async (req, res) => {
   try {
-    const { receiverEmail, amount } = req.body; //get the info of receiver
+    const { receiverEmail, amount, sourceCurrency, destinationCurrency } =
+      req.body; //get the info of receiver
 
     //check if info provided
     if (!receiverEmail) {
@@ -50,11 +51,39 @@ export const sendMoney = async (req, res) => {
       });
     }
 
+    //source currency
+    if (!sourceCurrency) {
+      return res.status(400).json({
+        message: 'source currency required',
+      });
+    }
+
+    //destination currency
+    if (!destinationCurrency) {
+      return res.status(400).json({
+        message: 'destination currency required',
+      });
+    }
+
+    if (!supportedCurrencies.includes(sourceCurrency)) {
+      return res.status(400).json({
+        message: 'Unsupported source currency',
+      });
+    }
+
+    if (!supportedCurrencies.includes(destinationCurrency)) {
+      return res.status(400).json({
+        message: 'Unsupported destination currency',
+      });
+    }
+
     //add job to queue
     await xrpleQueue.add('sendXRP', {
-      receiver: receiver,
-      sender: sender,
-      amount: amount,
+      receiver,
+      sender,
+      amount,
+      sourceCurrency,
+      destinationCurrency,
     });
 
     res.status(201).json({
