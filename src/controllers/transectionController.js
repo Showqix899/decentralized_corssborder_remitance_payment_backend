@@ -130,3 +130,88 @@ export const getTransections = async (req, res) => {
     });
   }
 };
+
+//analytical controller
+export const getTransactionAnalytics = async (req, res) => {
+  try {
+    const analytics = await Transection.aggregate([
+      {
+        $facet: {
+          // =========================
+          // Processing Time Stats
+          // =========================
+          processingTimeStats: [
+            {
+              $group: {
+                _id: null,
+                avgProcessingTimeMs: { $avg: '$processingTimeMs' },
+                minProcessingTimeMs: { $min: '$processingTimeMs' },
+                maxProcessingTimeMs: { $max: '$processingTimeMs' },
+
+                avgProcessingTimeSeconds: { $avg: '$processingTimeSeconds' },
+                minProcessingTimeSeconds: { $min: '$processingTimeSeconds' },
+                maxProcessingTimeSeconds: { $max: '$processingTimeSeconds' },
+
+                totalTransactions: { $sum: 1 },
+              },
+            },
+          ],
+
+          // =========================
+          // Network Fee Stats
+          // =========================
+          networkFeeStats: [
+            {
+              $group: {
+                _id: null,
+                totalNetworkFeeXRP: { $sum: '$networkFeeXRP' },
+                avgNetworkFeeXRP: { $avg: '$networkFeeXRP' },
+
+                // drops are stored as string → convert safely
+                totalNetworkFeeDrops: {
+                  $sum: { $toDouble: '$networkFeeDrops' },
+                },
+              },
+            },
+          ],
+
+          // =========================
+          // FX Fee Stats
+          // =========================
+          fxFeeStats: [
+            {
+              $group: {
+                _id: null,
+                totalFxFee: { $sum: '$fxFee' },
+                avgFxFee: { $avg: '$fxFee' },
+              },
+            },
+          ],
+
+          // =========================
+          // Status Breakdown
+          // =========================
+          statusStats: [
+            {
+              $group: {
+                _id: '$status',
+                count: { $sum: 1 },
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: analytics[0],
+    });
+  } catch (error) {
+    console.error('Analytics Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch analytics',
+    });
+  }
+};

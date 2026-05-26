@@ -12,6 +12,8 @@ const transectionSchema = new mongoose.Schema(
       ref: 'User',
     },
     senderAddress: String,
+    senderCountry: String,
+    receiverCountry: String,
     amount: Number,
     currency: {
       type: String,

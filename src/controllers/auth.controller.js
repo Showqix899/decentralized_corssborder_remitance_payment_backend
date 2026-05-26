@@ -17,9 +17,12 @@ import { createWallet } from '../services/xrplService.js';
 export const registerUser = async (req, res) => {
   try {
     //collect name email password
-    const { name, email, password } = req.body;
+    const { name, email, password, country } = req.body;
 
-    if (!name || !email || !password) {
+    //convert country to lower case
+    const lowerCaseCountry = country.trim().toLowerCase();
+
+    if (!name || !email || !password || !country) {
       return res.status(400).json({
         message: 'please fill out all the field with valid credintials',
       });
@@ -48,6 +51,7 @@ export const registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      country: lowerCaseCountry,
       verificationToken,
       verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
       wallet: {

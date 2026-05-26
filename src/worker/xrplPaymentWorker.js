@@ -167,6 +167,10 @@ const xrplPaymentWorker = new Worker(
 
         receiverAddress: freshReceiver.wallet.address,
 
+        senderCountry: freshSender.country,
+
+        receiverCountry: freshReceiver.country,
+
         // ORIGINAL
         amount,
 
