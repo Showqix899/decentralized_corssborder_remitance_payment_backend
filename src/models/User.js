@@ -27,6 +27,27 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    nid_no: {
+      type: String,
+      required: true,
+    },
+    passport_no: {
+      type: String,
+      default: null,
+    },
+
+    kycStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    governmentIdNumber: {
+      type: String,
+    },
+    dateOfBirth: {
+      type: Date,
+    },
+
     verificationToken: String,
 
     verificationTokenExpires: Date,

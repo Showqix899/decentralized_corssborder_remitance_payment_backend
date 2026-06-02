@@ -10,6 +10,9 @@ import connectDB from './src/config/db.js';
 import authRoutes from './src/routes/authRoutes.js';
 import walletRoutes from './src/routes/walletRoutes.js';
 import transactionRoutes from './src/routes/transactionRoutes.js';
+import kycRoutes from './src/routes/kycRoutes.js';
+
+//dotenv injecting
 dotenv.config();
 
 //mongod db connect
@@ -30,6 +33,9 @@ app.use('/api/wallet', walletRoutes);
 
 //transection routes
 app.use('/api/transections', transactionRoutes);
+
+//kyc (know your customer)
+app.use('/api/admin', kycRoutes);
 
 //running the app on port {PORT}
 const PORT = process.env.PORT || 5000;

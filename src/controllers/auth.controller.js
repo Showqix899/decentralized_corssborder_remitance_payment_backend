@@ -17,14 +17,57 @@ import { createWallet } from '../services/xrplService.js';
 export const registerUser = async (req, res) => {
   try {
     //collect name email password
-    const { name, email, password, country } = req.body;
+    const { name, email, password, country, nid_no, passport_no, dateOfBirth } =
+      req.body;
+
+    if (!name || !email || !password || !country || !nid_no || !dateOfBirth) {
+      return res.status(400).json({
+        message: 'please fill out all the field with valid credintials',
+      });
+    }
 
     //convert country to lower case
     const lowerCaseCountry = country.trim().toLowerCase();
 
-    if (!name || !email || !password || !country) {
+    //check nid is valid or not (must be 10 or 17 digit)
+    const nidRegex = /^\d{10}$|^\d{17}$/;
+
+    if (!nidRegex.test(nid_no)) {
       return res.status(400).json({
-        message: 'please fill out all the field with valid credintials',
+        message: 'NID number must be either 10 or 17 digits long',
+      });
+    }
+
+    //check passport number is valid or not (must be 9 characters long and start with a letter followed by 8 digits)
+    const passportRegex = /^[A-Za-z]\d{8}$/;
+
+    if (!passportRegex.test(passport_no)) {
+      return res.status(400).json({
+        message:
+          'Passport number must be 9 characters long, starting with a letter followed by 8 digits',
+      });
+    }
+
+    //check if age is above 18
+    const birthDate = new Date(dateOfBirth);
+    const ageDiff = Date.now() - birthDate.getTime();
+    const ageDate = new Date(ageDiff);
+    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+
+    if (age < 18) {
+      return res.status(400).json({
+        message: 'you must be at least 18 years old to register',
+      });
+    }
+
+    //password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message:
+          'password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character',
       });
     }
 
@@ -52,6 +95,9 @@ export const registerUser = async (req, res) => {
       email,
       password: hashedPassword,
       country: lowerCaseCountry,
+      nid_no,
+      passport_no: passport_no ? passport_no : null,
+      dateOfBirth,
       verificationToken,
       verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
       wallet: {
