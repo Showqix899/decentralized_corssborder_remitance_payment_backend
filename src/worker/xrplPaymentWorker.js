@@ -13,16 +13,17 @@ import connectDB from '../config/db.js';
 
 // SERVICES
 import { sendXRP } from '../services/xrplService.js';
-
 import {
   getExchangeInfo,
   calculateFXFee,
 } from '../services/exchangeRateService.js';
+import { runAMLChecks, determineAMLStatus } from '../services/amlService.js';
+import { generateSwiftMXMessage } from '../services/swiftMXServices.js';
 
 // MODELS
 import User from '../models/User.js';
-
 import Transection from '../models/Transection.js';
+import ComplianceLog from '../models/ComplianceLog.js';
 
 // CONNECT DB
 connectDB();
@@ -98,6 +99,63 @@ const xrplPaymentWorker = new Worker(
 
       const startTime = Date.now();
 
+      //aml result
+      const amlResult = await runAMLChecks({
+        sender: freshSender,
+        receiver: freshReceiver,
+        amount,
+      });
+
+      // aml status
+      const amlStatus = determineAMLStatus(amlResult.riskScore);
+
+      //check status
+      if (amlStatus === 'blocked') {
+        //update sender aml status
+        freshSender.amlStatus = 'blocked';
+        freshSender.amlReasons = amlResult.reasons;
+        await freshSender.save();
+
+        throw new Error('Transaction blocked due to AML risk');
+      }
+
+      if (amlStatus === 'under_review') {
+        //update sender aml status
+        freshSender.amlStatus = 'under_review';
+        freshSender.amlReasons = amlResult.reasons;
+        await freshSender.save();
+
+        throw new Error('Transaction under review due to AML risk');
+      }
+
+      freshSender.amlStatus = 'clear';
+      freshSender.amlReasons = [];
+      await freshSender.save();
+
+      const swiftMessage = generateSwiftMXMessage({
+        sender: freshSender,
+
+        receiver: freshReceiver,
+
+        amount,
+
+        sourceCurrency,
+
+        destinationCurrency,
+      });
+
+      await ComplianceLog.create({
+        sender: freshSender._id,
+
+        receiver: freshReceiver._id,
+
+        riskScore: amlResult.riskScore,
+
+        amlStatus,
+
+        reasons: amlResult.reasons,
+      });
+
       /*
         IMPORTANT:
 
@@ -111,6 +169,7 @@ const xrplPaymentWorker = new Worker(
       */
 
       // BLOCKCHAIN TRANSFER
+
       const transferResult = await sendXRP({
         senderSeed: sender.wallet.seed,
 
@@ -207,6 +266,15 @@ const xrplPaymentWorker = new Worker(
         processingTimeMs,
 
         processingTimeSeconds,
+
+        swiftMessageType: swiftMessage.messageType,
+
+        swiftMessageId: swiftMessage.messageId,
+
+        amlStatus,
+        riskScore: amlResult.riskScore,
+
+        amlReasons: amlResult.reasons,
 
         status: 'completed',
       });

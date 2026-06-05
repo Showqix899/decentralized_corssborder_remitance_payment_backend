@@ -11,6 +11,10 @@ const transectionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    settlementNetwork: {
+      type: String,
+      enum: ['XRP', 'ETH', 'BTC'],
+    },
     senderAddress: String,
     senderCountry: String,
     receiverCountry: String,
@@ -33,6 +37,19 @@ const transectionSchema = new mongoose.Schema(
     convertedAmount: Number,
     fxFee: Number,
     totalDeducted: Number,
+    swiftMessageType: String,
+    swiftMessageId: String,
+    amlStatus: {
+      type: String,
+    },
+    riskScore: {
+      type: String,
+    },
+    amlReasons: [
+      {
+        type: String,
+      },
+    ],
     status: {
       type: String,
       enum: ['pending', 'completed', 'failed'],

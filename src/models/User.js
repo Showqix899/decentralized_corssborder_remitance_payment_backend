@@ -58,11 +58,8 @@ const userSchema = new mongoose.Schema(
 
     wallet: {
       address: String,
-
       seed: String,
-
       publicKey: String,
-
       privateKey: String,
     },
     role: {
@@ -81,6 +78,18 @@ const userSchema = new mongoose.Schema(
         BDT: 50000,
       },
     },
+
+    amlStatus: {
+      type: String,
+      enum: ['clear', 'under_review', 'blocked'],
+      default: 'clear',
+    },
+
+    riskScore: {
+      type: Number,
+      default: 0,
+    },
+    amlReasons: [{ type: String }],
   },
   {
     timestamps: true,
