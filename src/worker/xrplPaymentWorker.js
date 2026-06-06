@@ -210,7 +210,7 @@ const xrplPaymentWorker = new Worker(
       // XRPL DETAILS
       const txHash = transferResult.result.result.hash;
 
-      const ledgerIndex = transferResult.result.result.validated_ledger_index;
+      const ledgerIndex = transferResult.result.result.ledger_index;
 
       const networkFeeDrops = transferResult.networkFeeDrops;
 
