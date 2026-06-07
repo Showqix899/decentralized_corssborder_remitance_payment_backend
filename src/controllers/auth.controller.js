@@ -12,6 +12,7 @@ import User from '../models/User.js';
 
 //services
 import { createWallet } from '../services/xrplService.js';
+import { createEthereumWallet } from '../services/ethereumService.js';
 
 //Register User
 export const registerUser = async (req, res) => {
@@ -89,6 +90,9 @@ export const registerUser = async (req, res) => {
     //create xrpl wallet
     const xrplWallet = await createWallet();
 
+    //create ethereum wallet
+    const ethereumWallet = await createEthereumWallet();
+
     //create user
     const user = await User.create({
       name,
@@ -100,11 +104,22 @@ export const registerUser = async (req, res) => {
       dateOfBirth,
       verificationToken,
       verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
-      wallet: {
-        address: xrplWallet.address,
-        seed: xrplWallet.seed,
-        publicKey: xrplWallet.publicKey,
-        privateKey: xrplWallet.privateKey,
+      wallets: {
+        xrpl: {
+          address: xrplWallet.address,
+
+          seed: xrplWallet.seed,
+
+          publicKey: xrplWallet.publicKey,
+
+          privateKey: xrplWallet.privateKey,
+        },
+
+        ethereum: {
+          address: ethereumWallet.address,
+
+          privateKey: ethereumWallet.privateKey,
+        },
       },
     });
 

@@ -56,11 +56,18 @@ const userSchema = new mongoose.Schema(
 
     resetPasswordExpires: Date,
 
-    wallet: {
-      address: String,
-      seed: String,
-      publicKey: String,
-      privateKey: String,
+    wallets: {
+      xrpl: {
+        address: String,
+        seed: String,
+        publicKey: String,
+        privateKey: String,
+      },
+
+      ethereum: {
+        address: String,
+        privateKey: String,
+      },
     },
     role: {
       type: String,
