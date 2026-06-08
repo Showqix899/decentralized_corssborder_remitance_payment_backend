@@ -11,7 +11,8 @@
     "prepare": "husky",
     "lint": "eslint .",
     "emailWorker": "nodemon src/worker/emailWorker.js",
-    "xrplPaymentWorker": "nodemon src/worker/xrplPaymentWorker.js"
+    "xrplPaymentWorker": "nodemon src/worker/xrplPaymentWorker.js",
+    "eth_test":"nodemon src/test/ethConnectionTest.js"
   },
   "lint-staged": {
     "*.{js,css,md}": [
