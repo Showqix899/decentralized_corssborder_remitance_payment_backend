@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "emailWorker": "nodemon src/worker/emailWorker.js",
     "xrplPaymentWorker": "nodemon src/worker/xrplPaymentWorker.js",
-    "eth_test":"nodemon src/test/ethConnectionTest.js"
+    "eth_test":"nodemon src/test/ethConnectionTest.js",
+    "ethereumPaymentWorker":"nodemon src/worker/ethereumPaymentWorker.js"
   },
   "lint-staged": {
     "*.{js,css,md}": [
