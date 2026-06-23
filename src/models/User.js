@@ -78,7 +78,6 @@ const userSchema = new mongoose.Schema(
       type: Map,
 
       of: Number,
-
       default: {
         USD: 1000,
         XRP: 1000,

@@ -87,9 +87,9 @@ export const sendMoney = async (req, res) => {
     });
 
     res.status(201).json({
-      message: 'Transfer successful',
+      message: 'Transfer queued',
       to: receiver.email,
-      address: receiver.wallet.address,
+      address: receiver.wallets.xrpl.address,
       amount: amount,
     });
   } catch (error) {
@@ -213,5 +213,23 @@ export const getTransactionAnalytics = async (req, res) => {
       success: false,
       message: 'Failed to fetch analytics',
     });
+  }
+};
+
+import { getWalletBalance } from '../services/xrplService.js';
+
+//get balance
+export const getbalance = async (req, res) => {
+  try {
+    //find user
+    const user = await User.findById(req.user._id);
+
+    const balance = await getWalletBalance(user.wallets.xrpl.address);
+
+    return res.json({
+      balance: balance,
+    });
+  } catch (error) {
+    console.log(error.message);
   }
 };

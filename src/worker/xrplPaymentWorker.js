@@ -12,7 +12,11 @@ import redisConnection from '../config/redis.js';
 import connectDB from '../config/db.js';
 
 // SERVICES
-import { sendXRP } from '../services/xrplService.js';
+import { sendXRP, getWalletBalance } from '../services/xrplService.js';
+import {
+  getXRPPrice,
+  getXRPPriceUSD,
+} from '../services/exchangeRateService.js';
 import {
   getExchangeInfo,
   calculateFXFee,
@@ -82,6 +86,31 @@ const xrplPaymentWorker = new Worker(
       const exchangeRate = exchangeInfo.exchangeRate;
 
       const convertedAmount = exchangeInfo.convertedAmount;
+
+      // XRP price in source currency
+      const xrpPrice = await getXRPPrice(sourceCurrency.toLowerCase());
+
+      //XRP price in price in usd
+      const xrpPriceUSD = await getXRPPriceUSD();
+
+      // Convert fiat amount to XRP
+      const cryptoAmountSent = Number(amount) / Number(xrpPrice);
+
+      // Current wallet balance
+      const senderXRPBalance = Number(
+        await getWalletBalance(freshSender.wallets.xrpl.address)
+      );
+
+      // Reserve some XRP for transaction fee
+      const estimatedNetworkFee = 0.001; // XRP
+
+      const requiredXRP = Number(cryptoAmountSent) + estimatedNetworkFee;
+
+      if (senderXRPBalance < requiredXRP) {
+        throw new Error(
+          `Insufficient XRP wallet balance. Required ${requiredXRP} XRP, Available ${senderXRPBalance} XRP`
+        );
+      }
 
       // FX FEE
       const fxFee = calculateFXFee(amount);
@@ -171,11 +200,11 @@ const xrplPaymentWorker = new Worker(
       // BLOCKCHAIN TRANSFER
 
       const transferResult = await sendXRP({
-        senderSeed: sender.wallet.seed,
+        senderSeed: sender.wallets.xrpl.seed,
 
-        destination: receiver.wallet.address,
+        destination: receiver.wallets.xrpl.address,
 
-        amount,
+        amount: cryptoAmountSent.toFixed(6),
       });
 
       // TRANSACTION END TIME
@@ -216,49 +245,37 @@ const xrplPaymentWorker = new Worker(
 
       const networkFeeXRP = Number(transferResult.networkFeeXRP);
 
+      const networkFeeSourceCurrency = networkFeeXRP * xrpPrice;
+
+      const networkFeeUSD = networkFeeXRP * xrpPriceUSD;
+
+      const totalCostUSD =
+        Number(amount) *
+          (await getExchangeInfo(sourceCurrency, 'USD', 1)).exchangeRate +
+        networkFeeUSD;
+
       // SAVE TRANSACTION
       const transection = await Transection.create({
         sender: freshSender._id,
 
         receiver: freshReceiver._id,
 
-        senderAddress: freshSender.wallet.address,
+        settlementNetwork: 'XRP',
 
-        receiverAddress: freshReceiver.wallet.address,
+        senderAddress: freshSender.wallets.xrpl.address,
+
+        receiverAddress: freshReceiver.wallets.xrpl.address,
 
         senderCountry: freshSender.country,
 
         receiverCountry: freshReceiver.country,
 
-        // ORIGINAL
         amount,
 
-        // FX DATA
-        sourceCurrency,
-
-        destinationCurrency,
-
-        exchangeRate,
-
-        convertedAmount,
-
-        fxFee,
-
-        totalDeducted,
-
-        // BLOCKCHAIN
         currency: 'XRP',
 
         txHash,
 
-        ledgerIndex,
-
-        // FEES
-        networkFeeDrops,
-
-        networkFeeXRP,
-
-        // TIMING
         initiatedAt,
 
         completedAt,
@@ -267,11 +284,40 @@ const xrplPaymentWorker = new Worker(
 
         processingTimeSeconds,
 
+        networkFeeDrops,
+
+        networkFeeXRP,
+
+        ledgerIndex,
+
+        sourceCurrency,
+
+        destinationCurrency,
+
+        exchangeRate,
+
+        convertedAmount,
+
+        cryptoAmountSent,
+
+        cryptoPrice: xrpPrice,
+
+        networkFeeSourceCurrency,
+
+        networkFeeUSD,
+
+        fxFee,
+
+        totalDeducted,
+
+        totalCostUSD,
+
         swiftMessageType: swiftMessage.messageType,
 
         swiftMessageId: swiftMessage.messageId,
 
         amlStatus,
+
         riskScore: amlResult.riskScore,
 
         amlReasons: amlResult.reasons,

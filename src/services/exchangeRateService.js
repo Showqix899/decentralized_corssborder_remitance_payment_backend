@@ -47,3 +47,86 @@ export const calculateFXFee = (amount) => {
 
   return amount * (feePercent / 100);
 };
+
+// XRP price
+export const getXRPPrice = async (fiatCurrency = 'usd') => {
+  try {
+    const response = await axios.get(
+      'https://api.coingecko.com/api/v3/simple/price',
+      {
+        headers: {
+          'x-cg-demo-api-key': process.env.COINGECKO_API_KEY,
+        },
+        params: {
+          ids: 'ripple',
+          vs_currencies: fiatCurrency,
+        },
+      }
+    );
+
+    return Number(response.data.ripple[fiatCurrency.toLowerCase()]);
+  } catch (error) {
+    throw new Error('Failed to fetch XRP price', { cause: error });
+  }
+};
+
+// ETH price
+export const getETHPrice = async (fiatCurrency = 'usd') => {
+  try {
+    const response = await axios.get(
+      'https://api.coingecko.com/api/v3/simple/price',
+      {
+        headers: {
+          'x-cg-demo-api-key': process.env.COINGECKO_API_KEY,
+        },
+        params: {
+          ids: 'ethereum',
+          vs_currencies: fiatCurrency,
+        },
+      }
+    );
+
+    return Number(response.data.ethereum[fiatCurrency.toLowerCase()]);
+  } catch (error) {
+    throw new Error('Failed to fetch ETH price', { cause: error });
+  }
+};
+
+// ---------------------------
+// XRP USD PRICE
+// ---------------------------
+export const getXRPPriceUSD = async () => {
+  const response = await axios.get(
+    'https://api.coingecko.com/api/v3/simple/price',
+    {
+      params: {
+        ids: 'ripple',
+        vs_currencies: 'usd',
+      },
+
+      headers: {
+        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY,
+      },
+    }
+  );
+
+  return response.data.ripple.usd;
+};
+
+//get eth to usd
+export const getETHPriceUSD = async () => {
+  const response = await axios.get(
+    'https://api.coingecko.com/api/v3/simple/price',
+    {
+      params: {
+        ids: 'ethereum',
+        vs_currencies: 'usd',
+      },
+      headers: {
+        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY,
+      },
+    }
+  );
+
+  return response.data.ethereum.usd;
+};

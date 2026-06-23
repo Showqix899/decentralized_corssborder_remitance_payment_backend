@@ -12,9 +12,18 @@ const ethereumTransactionSchema = new mongoose.Schema(
       ref: 'User',
     },
 
+    settlementNetwork: {
+      type: String,
+      default: 'ETHEREUM',
+    },
+
     senderAddress: String,
 
     receiverAddress: String,
+
+    senderCountry: String,
+
+    receiverCountry: String,
 
     amount: Number,
 
@@ -26,7 +35,13 @@ const ethereumTransactionSchema = new mongoose.Schema(
 
     convertedAmount: Number,
 
+    cryptoAmountSent: Number,
+
+    cryptoPrice: Number,
+
     fxFee: Number,
+
+    totalDeducted: Number,
 
     txHash: String,
 
@@ -38,12 +53,11 @@ const ethereumTransactionSchema = new mongoose.Schema(
 
     networkFeeETH: Number,
 
+    networkFeeSourceCurrency: Number,
+
     networkFeeUSD: Number,
 
-    settlementNetwork: {
-      type: String,
-      default: 'ETHEREUM',
-    },
+    totalCostUSD: Number,
 
     initiatedAt: Date,
 

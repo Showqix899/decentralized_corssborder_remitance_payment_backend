@@ -12,6 +12,7 @@ import walletRoutes from './src/routes/walletRoutes.js';
 import transactionRoutes from './src/routes/transactionRoutes.js';
 import kycRoutes from './src/routes/kycRoutes.js';
 import ethRoutes from './src/routes/ethereumRoutes.js';
+import analyticRoutes from './src/routes/analyticRoutes.js';
 
 //dotenv injecting
 dotenv.config();
@@ -40,6 +41,9 @@ app.use('/api/admin', kycRoutes);
 
 //eth
 app.use('/api/eth', ethRoutes);
+
+//analytics
+app.use('/api/analytics', analyticRoutes);
 
 //running the app on port {PORT}
 const PORT = process.env.PORT || 5000;

@@ -1,4 +1,10 @@
-import { Wallet, JsonRpcProvider, parseEther, formatEther } from 'ethers';
+import {
+  Wallet,
+  JsonRpcProvider,
+  parseEther,
+  formatEther,
+  ethers,
+} from 'ethers';
 
 //create wallet
 export const createEthereumWallet = () => {
@@ -42,7 +48,21 @@ export const sendETH = async ({ senderPrivateKey, destination, amount }) => {
       networkFeeETH,
     };
   } catch (error) {
-    console.log(error.message);
-    throw error;
+    throw new Error(`errot at sending eth`, { cause: error });
+  }
+};
+
+//get wallet balance
+const provider = new ethers.JsonRpcProvider(process.env.ETH_RPC_URL);
+
+export const getETHBalance = async (address) => {
+  try {
+    const balanceWei = await provider.getBalance(address);
+
+    const balanceETH = ethers.formatEther(balanceWei);
+
+    return balanceETH;
+  } catch (error) {
+    throw new Error(`failed to fetch error ${error.message}`, { cause: error });
   }
 };
