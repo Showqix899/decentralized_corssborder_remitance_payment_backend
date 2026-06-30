@@ -77,9 +77,7 @@ const xrplPaymentWorker = new Worker(
       // GET LIVE FX DATA
       const exchangeInfo = await getExchangeInfo(
         sourceCurrency,
-
         destinationCurrency,
-
         amount
       );
 

@@ -1,110 +1,3 @@
-// import dotenv from 'dotenv';
-// dotenv.config();
-
-// import { Worker } from 'bullmq';
-
-// import connectDB from '../config/db.js';
-
-// import redisConnection from '../config/redis.js';
-
-// import User from '../models/User.js';
-
-// import EthereumTransaction from '../models/EthereumTransection.js';
-
-// import { sendETH } from '../services/ethereumService.js';
-
-// import { getExchangeInfo } from "../services/exchangeRateService.js"
-
-// //connect db
-// connectDB();
-
-// //ethereum worker
-// const ethereumWorker = new Worker(
-//   'ethereumPaymentQueue',
-
-//   async (job) => {
-//     const { sender, receiver, amount } = job.data;
-
-//     console.log('ETH transfer started');
-
-//     const initiatedAt = new Date();
-
-//     const startTime = Date.now();
-
-//     const exchangeInfo =
-//       await getExchangeInfo(
-//         sourceCurrency,
-//         destinationCurrency,
-//         amount
-//       );
-
-//     const result = await sendETH({
-//       senderPrivateKey: sender.wallets.ethereum.privateKey,
-
-//       destination: receiver.wallets.ethereum.address,
-
-//       amount,
-//     });
-
-//     const completedAt = new Date();
-
-//     const endTime = Date.now();
-
-//     const processingTimeMs = endTime - startTime;
-
-//     const processingTimeSeconds = processingTimeMs / 1000;
-
-//     await EthereumTransaction.create({
-//       sender: sender._id,
-
-//       receiver: receiver._id,
-
-//       senderAddress: sender.wallets.ethereum.address,
-
-//       receiverAddress: receiver.wallets.ethereum.address,
-
-//       amount,
-
-//       txHash: result.txHash,
-
-//       blockNumber: result.blockNumber,
-
-//       gasUsed: result.gasUsed,
-
-//       gasPrice: result.gasPrice,
-
-//       networkFeeETH: result.networkFeeETH,
-
-//       initiatedAt,
-
-//       completedAt,
-
-//       processingTimeMs,
-
-//       processingTimeSeconds,
-
-//       status: 'completed',
-//     });
-
-//     console.log('ETH transfer complete');
-//   },
-
-//   {
-//     connection: redisConnection,
-//   }
-// );
-
-// //events
-// ethereumWorker.on('completed', (job) => {
-//   console.log(`Job ${job.id} completed`);
-// });
-
-// ethereumWorker.on('failed', (job, err) => {
-//   console.log(`Job ${job?.id} failed`);
-
-//   console.log(err);
-// });
-
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -117,7 +10,7 @@ import User from '../models/User.js';
 import EthereumTransaction from '../models/EthereumTransection.js';
 import ComplianceLog from '../models/ComplianceLog.js';
 
-import { sendETH } from '../services/ethereumService.js';
+import { sendETH, getETHBalance } from '../services/ethereumService.js';
 
 import {
   getExchangeInfo,
@@ -188,8 +81,12 @@ const ethereumWorker = new Worker(
 
       const totalDeducted = Number(amount) + Number(fxFee);
 
-      if (freshSender.balances.get(sourceCurrency) < totalDeducted) {
-        throw new Error('Insufficient balance');
+      const userETHBalance = await getETHBalance(
+        freshSender.wallets.ethereum.address
+      );
+
+      if (Number(cryptoAmountSent) > Number(userETHBalance)) {
+        throw new Error('Insufficient Balance');
       }
 
       // AML
@@ -241,6 +138,8 @@ const ethereumWorker = new Worker(
 
         amount: cryptoAmountSent.toFixed(8),
       });
+
+      //test
 
       const completedAt = new Date();
 
