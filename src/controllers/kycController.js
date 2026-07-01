@@ -1,163 +1,78 @@
 import User from '../models/User.js';
 import axios from 'axios';
 
-//get ll pending KYC requests
-export const getPendingsKYC = async (req, res) => {
+//didt kyc system
+export const createKYCSession = async (req, res) => {
   try {
-    //kyc pending kyc user
-    const users = await User.find({
-      kycStatus: 'pending',
-      isVerified: true,
-    }).select('-password');
+    //get the user
+    const user = req.user;
 
-    if (!users) {
-      return res.status(404).json({
-        message: 'no pending users found',
+    if (user.kycStatus === 'approved') {
+      return res.status(200).json({
+        message: 'you are already approved',
       });
     }
-
-    res.status(200).json(users);
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
-  }
-};
-
-//approve kyc
-export const approveKYC = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId);
-
-    if (!user) {
-      return res.status(404).json({
-        message: 'User not found',
-      });
-    }
-
-    user.kycStatus = 'approved';
-
-    await user.save();
-
-    res.status(200).json({
-      message: 'KYC approved successfully',
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
-  }
-};
-
-// Reject KYC
-export const rejectKYC = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId);
-
-    if (!user) {
-      return res.status(404).json({
-        message: 'User not found',
-      });
-    }
-
-    user.kycStatus = 'rejected';
-
-    await user.save();
-
-    res.status(200).json({
-      message: 'KYC rejected',
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
-  }
-};
-
-// View single KYC request
-export const getKYCDetails = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId).select('-password');
-
-    if (!user) {
-      return res.status(404).json({
-        message: 'User not found',
-      });
-    }
-
-    res.status(200).json(user);
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
-  }
-};
-
-//kyc approval
-export const approveKYCWithNID = async (req, res) => {
-  try {
-    if (
-      !req.files['nid_front'] ||
-      !req.files['nid_back'] ||
-      !req.files['selfie']
-    ) {
-      return res.status(400).json({
-        message: 'All three images (NID front, NID back, selfie) are required',
-      });
-    }
-
-    const nid_front_base64 = req.files.nid_front[0].buffer.toString('base64');
-
-    const nid_back_base64 = req.files.nid_back[0].buffer.toString('base64');
-
-    const selfie_base64 = req.files.selfie[0].buffer.toString('base64');
-
-    console.log('Received images, starting NIDLive verification...');
 
     const response = await axios.post(
-      `${process.env.NIDLIVE_BASE_URL}/api-verify`,
+      `${process.env.DIDIT_BASE_URL}/session/`,
       {
-        client_id: process.env.NIDLIVE_CLIENT_ID,
-        client_secret: process.env.NIDLIVE_CLIENT_SECRET,
-        nid_front_base64,
-        nid_back_base64,
-        selfie_base64,
-        consent_given: true,
+        workflow_id: process.env.DIDIT_WORKFLOW_ID,
+        vendor_data: req.user._id.toString(),
+        callback: `${process.env.CLIENT_URL}/api/kyc/didit-webhook`,
+      },
+      {
+        headers: {
+          'X-Api-Key': process.env.DIDIT_API_KEY,
+          'Content-Type': 'application/json',
+        },
       }
     );
 
-    console.log('NIDLive response:', response.data);
+    user.kyc_session_id = response.data.session_id;
+    user.kyc_verification_url = response.data.url;
 
-    const user = await User.findById(req.user.id);
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      url: response.data.url,
+    });
+  } catch (error) {
+    console.log(error.response?.data);
+    throw error;
+  }
+};
+
+//didit webhook controller
+export const diditWebhook = async (req, res) => {
+  try {
+    const { verificationSessionId, status } = req.query;
+
+    const user = await User.findOne({
+      kyc_session_id: verificationSessionId,
+    });
 
     if (!user) {
       return res.status(404).json({
+        success: false,
         message: 'User not found',
       });
     }
 
-    if (response.data.status === 'success') {
-      //update user kyc status to approved
-      user.kycStatus = 'approved';
-      await user.save();
+    user.kycStatus = status.toLowerCase();
 
-      return res.status(200).json({
-        message: 'KYC approved successfully',
-        data: response.data,
-      });
-    } else {
-      user.kycStatus = 'rejected';
-      await user.save();
-      return res.status(400).json({
-        message: 'KYC verification failed',
-        data: response.data,
-      });
-    }
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'KYC status updated',
+    });
   } catch (error) {
-    console.error('Error in NIDLive KYC verification:', error);
-    res.status(500).json({
-      message: 'Internal server error',
-      error: error.message,
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 };

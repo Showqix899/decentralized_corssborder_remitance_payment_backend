@@ -37,7 +37,7 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/transections', transactionRoutes);
 
 //kyc (know your customer)
-app.use('/api/admin', kycRoutes);
+app.use('/api/kyc', kycRoutes);
 
 //eth
 app.use('/api/eth', ethRoutes);

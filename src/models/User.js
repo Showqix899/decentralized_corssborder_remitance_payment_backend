@@ -38,9 +38,13 @@ const userSchema = new mongoose.Schema(
 
     kycStatus: {
       type: String,
-      enum: ['pending', 'approved', 'rejected'],
+      enum: ['pending', 'approved', 'rejected', 'in_review'],
       default: 'pending',
     },
+    kyc_session_id: {
+      type: String,
+    },
+    kyc_verification_url: String,
     governmentIdNumber: {
       type: String,
     },
