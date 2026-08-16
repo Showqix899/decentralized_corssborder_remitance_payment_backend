@@ -4,7 +4,7 @@ import User from '../models/User.js';
 //services
 import { getWalletBalance } from '../services/xrplService.js';
 import { getETHBalance } from '../services/ethereumService.js';
-
+import { getXRPPrice } from '../services/exchangeRateService.js';
 //controllers
 
 //get balance controller(xrpl)
@@ -16,9 +16,19 @@ export const getXRPBalance = async (req, res) => {
     //balance
     const balance = await getWalletBalance(user.wallets.xrpl.address);
 
+    //converted to user's default currency
+    const xrpPrice = await getXRPPrice(user.defaultCurrency.toLowerCase());
+
+    console.log('XRP Price:', xrpPrice);
+
+    //converted balance
+    const convertedBalance = balance * xrpPrice;
+
     res.json({
       wallet: user.wallets.xrpl.address,
-      balance,
+      xrp_balance: balance,
+      converted_balance: convertedBalance,
+      currency: user.defaultCurrency,
     });
   } catch (error) {
     res.status(500).json({

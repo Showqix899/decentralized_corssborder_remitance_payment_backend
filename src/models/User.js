@@ -1,5 +1,28 @@
 import mongoose from 'mongoose';
 
+const suportedCurrencies = [
+  'USD',
+  'CAD',
+  'MXN',
+  'EUR',
+  'GBP',
+  'CHF',
+  'AED',
+  'SAR',
+  'QAR',
+  'JPY',
+  'CNY',
+  'KRW',
+  'SGD',
+  'AUD',
+  'NZD',
+  'BDT',
+  'INR',
+  'PKR',
+  'NGN',
+  'ZAR',
+  'XRP',
+];
 //userSchema
 const userSchema = new mongoose.Schema(
   {
@@ -34,6 +57,11 @@ const userSchema = new mongoose.Schema(
     passport_no: {
       type: String,
       default: null,
+    },
+    defaultCurrency: {
+      type: String,
+      default: 'USD',
+      enum: suportedCurrencies,
     },
 
     kycStatus: {
