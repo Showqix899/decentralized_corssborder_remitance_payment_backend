@@ -19,8 +19,6 @@ export const getXRPBalance = async (req, res) => {
     //converted to user's default currency
     const xrpPrice = await getXRPPrice(user.defaultCurrency.toLowerCase());
 
-    console.log('XRP Price:', xrpPrice);
-
     //converted balance
     const convertedBalance = balance * xrpPrice;
 
@@ -29,6 +27,7 @@ export const getXRPBalance = async (req, res) => {
       xrp_balance: balance,
       converted_balance: convertedBalance,
       currency: user.defaultCurrency,
+      exchage_rate: xrpPrice,
     });
   } catch (error) {
     res.status(500).json({
