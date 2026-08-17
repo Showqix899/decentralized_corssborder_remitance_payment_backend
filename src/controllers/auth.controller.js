@@ -168,9 +168,7 @@ export const verifyEmail = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({
-        message: 'Invalid or expired token',
-      });
+      return res.redirect(`${process.env.FRONTEND_URL}/verify-email/error`);
     }
 
     //set user as  valid
@@ -182,9 +180,9 @@ export const verifyEmail = async (req, res) => {
 
     await user.save(); //save the user state
 
-    res.json({
-      message: 'Account verified successfully',
-    });
+    console.log(`User Verifcation have been Done : True`);
+
+    return res.redirect(`${process.env.FRONTEND_URL}/verify-email/success`);
   } catch (error) {
     res.status(500).json({
       message: error.message,
