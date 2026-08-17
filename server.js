@@ -13,6 +13,7 @@ import transactionRoutes from './src/routes/transactionRoutes.js';
 import kycRoutes from './src/routes/kycRoutes.js';
 import ethRoutes from './src/routes/ethereumRoutes.js';
 import analyticRoutes from './src/routes/analyticRoutes.js';
+import userProfileRoutes from './src/routes/userProfileRoutes.js';
 
 //dotenv injecting
 dotenv.config();
@@ -29,6 +30,9 @@ app.use(express.json());
 
 //auth routes
 app.use('/api/auth', authRoutes);
+
+//user profile routes
+app.use('/api/user', userProfileRoutes);
 
 //wallet routes
 app.use('/api/wallet', walletRoutes);
