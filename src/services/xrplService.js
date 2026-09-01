@@ -66,3 +66,20 @@ export const sendXRP = async ({ senderSeed, destination, amount }) => {
     networkFeeXRP,
   };
 };
+
+export const getLedgerInfo = async (ledger_index) => {
+  try {
+    const response = await client.request({
+      command: 'ledger',
+      ledger_index: ledger_index,
+      transactions: true,
+      expand: true,
+    });
+
+    return response.result;
+  } catch (error) {
+    console.error('Get ledger info error:', error);
+
+    throw error;
+  }
+};

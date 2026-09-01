@@ -12,7 +12,11 @@ import redisConnection from '../config/redis.js';
 import connectDB from '../config/db.js';
 
 // SERVICES
-import { sendXRP, getWalletBalance } from '../services/xrplService.js';
+import {
+  sendXRP,
+  getWalletBalance,
+  getLedgerInfo,
+} from '../services/xrplService.js';
 import {
   getXRPPrice,
   getXRPPriceUSD,
@@ -28,6 +32,7 @@ import { generateSwiftMXMessage } from '../services/swiftMXServices.js';
 import User from '../models/User.js';
 import Transection from '../models/Transection.js';
 import ComplianceLog from '../models/ComplianceLog.js';
+import TestNetLedger from '../models/Ledger.js';
 
 // CONNECT DB
 connectDB();
@@ -321,6 +326,49 @@ const xrplPaymentWorker = new Worker(
         amlReasons: amlResult.reasons,
 
         status: 'completed',
+      });
+
+      //geting ledger info
+      const ldg_index = transferResult.result.result.ledger_index;
+      const ldgInfo = await getLedgerInfo(ldg_index);
+
+      const ledger = ldgInfo.ledger;
+
+      console.log(ledger);
+
+      //create ledger instance
+      const ledgerInstance = await TestNetLedger.create({
+        sender: sender._id,
+
+        receiver: receiver._id,
+
+        ledger_hash: ledger.ledger_hash,
+
+        parent_ledger_hash: ledger.parent_hash,
+
+        ledger_index: ledger.ledger_index,
+
+        validated: ldgInfo.validated,
+
+        close_time_human: ledger.close_time_human,
+
+        close_time_iso: ledger.close_time_iso,
+
+        transaction_hash: txHash,
+
+        xrp_amount: cryptoAmountSent,
+
+        source_currency: sourceCurrency,
+
+        destination_currency: destinationCurrency,
+
+        source_currency_amount: amount,
+
+        destination_currency_amount: convertedAmount,
+
+        sender_address: freshSender.wallets.xrpl.address,
+
+        receiver_address: freshReceiver.wallets.xrpl.address,
       });
 
       console.log('Transaction completed:', transection._id);

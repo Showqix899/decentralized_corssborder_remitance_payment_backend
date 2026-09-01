@@ -14,6 +14,7 @@ import kycRoutes from './src/routes/kycRoutes.js';
 import ethRoutes from './src/routes/ethereumRoutes.js';
 import analyticRoutes from './src/routes/analyticRoutes.js';
 import userProfileRoutes from './src/routes/userProfileRoutes.js';
+import ledgerRouters from './src/routes/ledgerRoutes.js';
 
 //dotenv injecting
 dotenv.config();
@@ -39,6 +40,9 @@ app.use('/api/wallet', walletRoutes);
 
 //transection routes
 app.use('/api/transections', transactionRoutes);
+
+//ledger routes
+app.use('/api/ledgers', ledgerRouters);
 
 //kyc (know your customer)
 app.use('/api/kyc', kycRoutes);
