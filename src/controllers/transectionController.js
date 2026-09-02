@@ -131,6 +131,29 @@ export const getTransections = async (req, res) => {
   }
 };
 
+//get tranection by id
+export const getTransectionById = async (req, res) => {
+  try {
+    const transection = await Transection.findById(req.params.id)
+      .populate('sender', 'name email')
+      .populate('receiver', 'name email');
+
+    if (!transection) {
+      return res.status(404).json({
+        message: 'transection not found',
+      });
+    }
+
+    res.status(200).json({
+      transection: transection,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
 //analytical controller
 export const getTransactionAnalytics = async (req, res) => {
   try {

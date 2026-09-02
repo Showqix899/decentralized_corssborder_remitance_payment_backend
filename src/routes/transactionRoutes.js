@@ -4,6 +4,7 @@ import {
   sendMoney,
   getTransections,
   getTransactionAnalytics,
+  getTransectionById,
 } from '../controllers/transectionController.js';
 
 import { protect } from '../middleware/authMiddleware.js';
@@ -16,5 +17,8 @@ router.post('/send', protect, sendMoney);
 router.get('/history', protect, getTransections);
 //transection analytical
 router.get('/analytics', getTransactionAnalytics);
+
+//get transection by id
+router.get('/:id', protect, getTransectionById);
 
 export default router;
