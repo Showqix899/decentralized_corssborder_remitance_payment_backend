@@ -334,8 +334,6 @@ const xrplPaymentWorker = new Worker(
 
       const ledger = ldgInfo.ledger;
 
-      console.log(ledger);
-
       //create ledger instance
       const ledgerInstance = await TestNetLedger.create({
         sender: sender._id,
