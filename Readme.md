@@ -32,10 +32,9 @@ The `docker-compose.yml` defines the following services:
 | `app`                 | `xrpl_remittance_system_backend` | Main Express.js API server                               | 3000              | 3000           |
 | `email_worker`        | `xrpl_email_worker`              | Background worker for processing email notification jobs | — (internal only) | —              |
 | `xrpl_payment_worker` | `xrpl_payment_worker`            | Background worker for processing XRPL payment jobs       | — (internal only) | —              |
-| `eth_payment_worker`  | `eth_payment_worker`             | Background worker for processing Ethereum payment jobs   | — (internal only) | —              |
 | `redis`               | `xrpl_redis`                     | Redis instance used for caching and BullMQ job queues    | 6380              | 6379           |
 
-> The `email_worker`, `xrpl_payment_worker`, and `eth_payment_worker` services do not expose ports externally — they run as internal background processes that consume jobs from Redis/BullMQ queues.
+> The `email_worker`, `xrpl_payment_worker` services do not expose ports externally — they run as internal background processes that consume jobs from Redis/BullMQ queues.
 
 ## Prerequisites
 
@@ -80,8 +79,6 @@ EXCHANGERATE_API_URL=
 NIDLIVE_BASE_URL=
 NIDLIVE_CLIENT_ID=
 NIDLIVE_CLIENT_SECRET=
-ETH_RPC_URL=
-ETH_TEST_WALLET_PRIVATE_KEY=
 COINGECKO_API_KEY=
 DIDIT_API_KEY=
 DIDIT_WORKFLOW_ID=
