@@ -8,72 +8,104 @@ import TestNetLedger from '../models/Ledger.js';
 
 export const getUserLedgers = async (req, res) => {
   try {
-    const { address, sort = 'desc', page = 1, limit = 10 } = req.query;
+    const { address, sort = 'newest', page = 1, limit = 10 } = req.query;
 
-    // Pagination
     const currentPage = Math.max(parseInt(page), 1);
     const perPage = Math.min(Math.max(parseInt(limit), 1), 100);
-
     const skip = (currentPage - 1) * perPage;
 
-    // Current user
     const userId = req.user._id;
 
-    // User must be either sender OR receiver
-    const query = {
+    const matchStage = {
       $or: [{ sender: userId }, { receiver: userId }],
     };
 
-    // Optional XRPL address filter
     if (address) {
-      query.$and = [
-        {
-          $or: [{ sender: userId }, { receiver: userId }],
-        },
-        {
-          $or: [{ sender_address: address }, { receiver_address: address }],
-        },
+      matchStage.$and = [
+        { $or: [{ sender: userId }, { receiver: userId }] },
+        { $or: [{ sender_address: address }, { receiver_address: address }] },
       ];
-
-      delete query.$or;
+      delete matchStage.$or;
     }
 
-    // Sort
-    const sortOrder = sort === 'asc' ? 1 : -1;
+    // Decide sort field + direction + whether it needs numeric conversion
+    let sortField = 'close_time_iso';
+    let sortDir = -1;
+    let numeric = false;
 
-    // Fetch
-    const ledgers = await TestNetLedger.find(query)
-      .sort({ xrp_amount: sortOrder })
-      .skip(skip)
-      .limit(perPage)
-      .populate('sender', 'name email')
-      .populate('receiver', 'name email')
-      .lean();
+    switch (sort) {
+      case 'highest':
+        sortField = 'xrp_amount_numeric';
+        sortDir = -1;
+        numeric = true;
+        break;
+      case 'lowest':
+        sortField = 'xrp_amount_numeric';
+        sortDir = 1;
+        numeric = true;
+        break;
+      case 'oldest':
+        sortField = 'close_time_iso';
+        sortDir = 1;
+        break;
+      case 'newest':
+      default:
+        sortField = 'close_time_iso';
+        sortDir = -1;
+        break;
+    }
 
-    // Count
-    const total = await TestNetLedger.countDocuments(query);
+    const pipeline = [
+      { $match: matchStage },
+      ...(numeric
+        ? [{ $addFields: { xrp_amount_numeric: { $toDouble: '$xrp_amount' } } }]
+        : []),
+      { $sort: { [sortField]: sortDir } },
+      { $skip: skip },
+      { $limit: perPage },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'sender',
+          foreignField: '_id',
+          as: 'sender',
+          pipeline: [{ $project: { name: 1, email: 1 } }],
+        },
+      },
+      { $unwind: { path: '$sender', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'receiver',
+          foreignField: '_id',
+          as: 'receiver',
+          pipeline: [{ $project: { name: 1, email: 1 } }],
+        },
+      },
+      { $unwind: { path: '$receiver', preserveNullAndEmptyArrays: true } },
+    ];
+
+    const [ledgers, total] = await Promise.all([
+      TestNetLedger.aggregate(pipeline),
+      TestNetLedger.countDocuments(matchStage),
+    ]);
 
     const totalPages = Math.ceil(total / perPage);
 
     return res.status(200).json({
       success: true,
-
       data: ledgers,
-
       pagination: {
         total,
         page: currentPage,
         limit: perPage,
         totalPages,
-
         hasNextPage: currentPage < totalPages,
-
         hasPreviousPage: currentPage > 1,
       },
     });
   } catch (error) {
     console.error('Get user ledgers error:', error);
-
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch ledgers',

@@ -34,6 +34,13 @@ export const sendMoney = async (req, res) => {
         message: 'sender  does not exist',
       });
     }
+
+    //check if sender kyc approved
+    if (sender.kycStatus !== 'approved') {
+      return res.status(403).json({
+        message: 'KYC not approved. Please complete KYC to send money.',
+      });
+    }
     //receiver
     const receiver = await User.findOne({
       email: receiverEmail,
@@ -41,6 +48,13 @@ export const sendMoney = async (req, res) => {
     if (!receiver) {
       return res.status(404).json({
         message: 'receiver email does not exist',
+      });
+    }
+
+    //check if reciever kyc approved
+    if (receiver.kycStatus !== 'approved') {
+      return res.status(403).json({
+        message: 'Receiver KYC not approved. Cannot send money.',
       });
     }
 

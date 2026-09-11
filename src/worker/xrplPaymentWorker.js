@@ -73,10 +73,12 @@ const xrplPaymentWorker = new Worker(
       // INITIALIZE BALANCES
       if (!freshSender.balances.has(sourceCurrency)) {
         freshSender.balances.set(sourceCurrency, 0);
+        await freshSender.save();
       }
 
       if (!freshReceiver.balances.has(destinationCurrency)) {
         freshReceiver.balances.set(destinationCurrency, 0);
+        await freshReceiver.save();
       }
 
       // GET LIVE FX DATA
@@ -86,6 +88,8 @@ const xrplPaymentWorker = new Worker(
         amount
       );
 
+      console.log('Exchange Info:', exchangeInfo);
+
       const exchangeRate = exchangeInfo.exchangeRate;
 
       const convertedAmount = exchangeInfo.convertedAmount;
@@ -93,11 +97,11 @@ const xrplPaymentWorker = new Worker(
       // XRP price in source currency
       const xrpPrice = await getXRPPrice(sourceCurrency.toLowerCase());
 
-      //XRP price in price in usd
+      // XRP price in usd
       const xrpPriceUSD = await getXRPPriceUSD();
 
       // Convert fiat amount to XRP
-      const cryptoAmountSent = Number(amount) / Number(xrpPrice);
+      const cryptoAmountSent = Number(xrpPrice) / Number(amount);
 
       // Current wallet balance
       const senderXRPBalance = Number(
@@ -108,6 +112,10 @@ const xrplPaymentWorker = new Worker(
       const estimatedNetworkFee = 0.001; // XRP
 
       const requiredXRP = Number(cryptoAmountSent) + estimatedNetworkFee;
+
+      console.log(
+        `Sender XRP Balance ${senderXRPBalance} and Crypto Amount Send ${cryptoAmountSent} and Required XRP ${requiredXRP}`
+      );
 
       if (senderXRPBalance < requiredXRP) {
         throw new Error(
@@ -121,17 +129,12 @@ const xrplPaymentWorker = new Worker(
       // TOTAL DEDUCTED
       const totalDeducted = Number(amount) + Number(fxFee);
 
-      // BALANCE CHECK
-      if (freshSender.balances.get(sourceCurrency) < totalDeducted) {
-        throw new Error('Insufficient balance');
-      }
-
       // TRANSACTION START TIME
       const initiatedAt = new Date();
 
       const startTime = Date.now();
 
-      //aml result
+      // aml result
       const amlResult = await runAMLChecks({
         sender: freshSender,
         receiver: freshReceiver,
@@ -141,9 +144,9 @@ const xrplPaymentWorker = new Worker(
       // aml status
       const amlStatus = determineAMLStatus(amlResult.riskScore);
 
-      //check status
+      // check status
       if (amlStatus === 'blocked') {
-        //update sender aml status
+        // update sender aml status
         freshSender.amlStatus = 'blocked';
         freshSender.amlReasons = amlResult.reasons;
         await freshSender.save();
@@ -152,7 +155,7 @@ const xrplPaymentWorker = new Worker(
       }
 
       if (amlStatus === 'under_review') {
-        //update sender aml status
+        // update sender aml status
         freshSender.amlStatus = 'under_review';
         freshSender.amlReasons = amlResult.reasons;
         await freshSender.save();
@@ -201,14 +204,20 @@ const xrplPaymentWorker = new Worker(
       */
 
       // BLOCKCHAIN TRANSFER
+      // NOTE: use freshSender / freshReceiver here, NOT the raw job.data
+      // sender/receiver — those may be stale if the job sat in queue while
+      // wallet details changed in the DB.
+      const sentAmount = cryptoAmountSent.toFixed(6);
 
       const transferResult = await sendXRP({
-        senderSeed: sender.wallets.xrpl.seed,
+        senderSeed: freshSender.wallets.xrpl.seed,
 
-        destination: receiver.wallets.xrpl.address,
+        destination: freshReceiver.wallets.xrpl.address,
 
-        amount: cryptoAmountSent.toFixed(6),
+        amount: sentAmount,
       });
+      // sendXRP throws if the on-ledger TransactionResult isn't tesSUCCESS,
+      // so reaching this line means funds have genuinely moved.
 
       // TRANSACTION END TIME
       const completedAt = new Date();
@@ -220,156 +229,177 @@ const xrplPaymentWorker = new Worker(
 
       const processingTimeSeconds = processingTimeMs / 1000;
 
-      // UPDATE SENDER BALANCE
-      freshSender.balances.set(
-        sourceCurrency,
+      // From this point on, XRP has already left the sender's wallet.
+      // Any failure below must NOT be retried by re-running the whole job
+      // (that would trigger a second on-chain transfer), so we isolate
+      // post-transfer persistence in its own try/catch.
+      try {
+        // ATOMIC BALANCE UPDATES — avoids read-modify-write races between
+        // concurrent jobs touching the same user's balance map.
+        await User.updateOne(
+          { _id: freshSender._id },
+          { $inc: { [`balances.${sourceCurrency}`]: -totalDeducted } }
+        );
 
-        freshSender.balances.get(sourceCurrency) - totalDeducted
-      );
+        await User.updateOne(
+          { _id: freshReceiver._id },
+          { $inc: { [`balances.${destinationCurrency}`]: convertedAmount } }
+        );
 
-      // UPDATE RECEIVER BALANCE
-      freshReceiver.balances.set(
-        destinationCurrency,
+        // XRPL DETAILS
+        const txHash = transferResult.result.result.hash;
 
-        freshReceiver.balances.get(destinationCurrency) + convertedAmount
-      );
+        const ledgerIndex = transferResult.result.result.ledger_index;
 
-      // SAVE USERS
-      await freshSender.save();
+        const networkFeeDrops = transferResult.networkFeeDrops;
 
-      await freshReceiver.save();
+        const networkFeeXRP = Number(transferResult.networkFeeXRP);
 
-      // XRPL DETAILS
-      const txHash = transferResult.result.result.hash;
+        const networkFeeSourceCurrency = networkFeeXRP * xrpPrice;
 
-      const ledgerIndex = transferResult.result.result.ledger_index;
+        const networkFeeUSD = networkFeeXRP * xrpPriceUSD;
 
-      const networkFeeDrops = transferResult.networkFeeDrops;
+        const totalCostUSD =
+          Number(amount) *
+            (await getExchangeInfo(sourceCurrency, 'USD', 1)).exchangeRate +
+          networkFeeUSD;
 
-      const networkFeeXRP = Number(transferResult.networkFeeXRP);
+        // SAVE TRANSACTION
+        const transection = await Transection.create({
+          sender: freshSender._id,
 
-      const networkFeeSourceCurrency = networkFeeXRP * xrpPrice;
+          receiver: freshReceiver._id,
 
-      const networkFeeUSD = networkFeeXRP * xrpPriceUSD;
+          settlementNetwork: 'XRP',
 
-      const totalCostUSD =
-        Number(amount) *
-          (await getExchangeInfo(sourceCurrency, 'USD', 1)).exchangeRate +
-        networkFeeUSD;
+          senderAddress: freshSender.wallets.xrpl.address,
 
-      // SAVE TRANSACTION
-      const transection = await Transection.create({
-        sender: freshSender._id,
+          receiverAddress: freshReceiver.wallets.xrpl.address,
 
-        receiver: freshReceiver._id,
+          senderCountry: freshSender.country,
 
-        settlementNetwork: 'XRP',
+          receiverCountry: freshReceiver.country,
 
-        senderAddress: freshSender.wallets.xrpl.address,
+          amount,
 
-        receiverAddress: freshReceiver.wallets.xrpl.address,
+          currency: 'XRP',
 
-        senderCountry: freshSender.country,
+          txHash,
 
-        receiverCountry: freshReceiver.country,
+          initiatedAt,
 
-        amount,
+          completedAt,
 
-        currency: 'XRP',
+          processingTimeMs,
 
-        txHash,
+          processingTimeSeconds,
 
-        initiatedAt,
+          networkFeeDrops,
 
-        completedAt,
+          networkFeeXRP,
 
-        processingTimeMs,
+          ledgerIndex,
 
-        processingTimeSeconds,
+          sourceCurrency,
 
-        networkFeeDrops,
+          destinationCurrency,
 
-        networkFeeXRP,
+          exchangeRate,
 
-        ledgerIndex,
+          convertedAmount,
 
-        sourceCurrency,
+          cryptoAmountSent: Number(sentAmount),
 
-        destinationCurrency,
+          cryptoPrice: xrpPrice,
 
-        exchangeRate,
+          networkFeeSourceCurrency,
 
-        convertedAmount,
+          networkFeeUSD,
 
-        cryptoAmountSent,
+          fxFee,
 
-        cryptoPrice: xrpPrice,
+          totalDeducted,
 
-        networkFeeSourceCurrency,
+          totalCostUSD,
 
-        networkFeeUSD,
+          swiftMessageType: swiftMessage.messageType,
 
-        fxFee,
+          swiftMessageId: swiftMessage.messageId,
 
-        totalDeducted,
+          amlStatus,
 
-        totalCostUSD,
+          riskScore: amlResult.riskScore,
 
-        swiftMessageType: swiftMessage.messageType,
+          amlReasons: amlResult.reasons,
 
-        swiftMessageId: swiftMessage.messageId,
+          status: 'completed',
+        });
 
-        amlStatus,
+        // GETTING LEDGER INFO (single lookup, no duplicate variable)
+        const ldgInfo = await getLedgerInfo(ledgerIndex);
 
-        riskScore: amlResult.riskScore,
+        const ledger = ldgInfo.ledger;
 
-        amlReasons: amlResult.reasons,
+        // CREATE LEDGER RECORD
+        const ledgerInstance = await TestNetLedger.create({
+          sender: freshSender._id,
 
-        status: 'completed',
-      });
+          receiver: freshReceiver._id,
 
-      //geting ledger info
-      const ldg_index = transferResult.result.result.ledger_index;
-      const ldgInfo = await getLedgerInfo(ldg_index);
+          ledger_hash: ledger.ledger_hash,
 
-      const ledger = ldgInfo.ledger;
+          parent_ledger_hash: ledger.parent_hash,
 
-      //create ledger instance
-      const ledgerInstance = await TestNetLedger.create({
-        sender: sender._id,
+          ledger_index: ledger.ledger_index,
 
-        receiver: receiver._id,
+          validated: ldgInfo.validated,
 
-        ledger_hash: ledger.ledger_hash,
+          close_time_human: ledger.close_time_human,
 
-        parent_ledger_hash: ledger.parent_hash,
+          close_time_iso: ledger.close_time_iso,
 
-        ledger_index: ledger.ledger_index,
+          transaction_hash: txHash,
 
-        validated: ldgInfo.validated,
+          xrp_amount: sentAmount,
 
-        close_time_human: ledger.close_time_human,
+          source_currency: sourceCurrency,
 
-        close_time_iso: ledger.close_time_iso,
+          destination_currency: destinationCurrency,
 
-        transaction_hash: txHash,
+          source_currency_amount: amount,
 
-        xrp_amount: cryptoAmountSent,
+          destination_currency_amount: convertedAmount,
 
-        source_currency: sourceCurrency,
+          sender_address: freshSender.wallets.xrpl.address,
 
-        destination_currency: destinationCurrency,
+          receiver_address: freshReceiver.wallets.xrpl.address,
+        });
 
-        source_currency_amount: amount,
+        console.log('Transaction completed:', transection._id);
+      } catch (postTransferError) {
+        // XRP already moved on-chain but we failed to persist the
+        // transaction/ledger/balance state. Do NOT rethrow as a normal
+        // job error — that would let BullMQ retry sendXRP again and
+        // double-send. Log distinctly so this can be reconciled manually.
+        console.error(
+          'RECONCILIATION REQUIRED — on-chain transfer succeeded but ' +
+            'post-transfer persistence failed:',
+          {
+            txHash: transferResult?.result?.result?.hash,
+            senderId: freshSender._id,
+            receiverId: freshReceiver._id,
+            amount,
+            sourceCurrency,
+            destinationCurrency,
+            error: postTransferError.message,
+          }
+        );
 
-        destination_currency_amount: convertedAmount,
-
-        sender_address: freshSender.wallets.xrpl.address,
-
-        receiver_address: freshReceiver.wallets.xrpl.address,
-      });
-
-      console.log('Transaction completed:', transection._id);
+        // Swallow here rather than throw, so BullMQ marks this job
+        // "completed" (funds did move) instead of retrying the transfer.
+        // Route the details above to an alerting/reconciliation system.
+        return;
+      }
     } catch (error) {
       console.log('Worker Error:', error.message);
 

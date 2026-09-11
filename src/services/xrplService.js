@@ -1,7 +1,7 @@
 import xrpl from 'xrpl';
 import client from '../config/xrpl.js';
 
-//connect xrpl
+// connect xrpl
 export const connectXRPL = async () => {
   if (!client.isConnected()) {
     await client.connect();
@@ -9,12 +9,10 @@ export const connectXRPL = async () => {
   }
 };
 
-//create wallet
+// create wallet
 export const createWallet = async () => {
   await connectXRPL();
-
   const wallet = (await client.fundWallet()).wallet;
-
   return {
     address: wallet.address,
     seed: wallet.seed,
@@ -23,22 +21,29 @@ export const createWallet = async () => {
   };
 };
 
-//get balance
+// get balance
 export const getWalletBalance = async (address) => {
   await connectXRPL();
 
-  const response = await client.request({
-    command: 'account_info',
-    account: address,
-    ledger_index: 'validated',
-  });
+  try {
+    const response = await client.request({
+      command: 'account_info',
+      account: address,
+      ledger_index: 'validated',
+    });
 
-  const balanceDrops = response.result.account_data.Balance;
-
-  return xrpl.dropsToXrp(balanceDrops);
+    const balanceDrops = response.result.account_data.Balance;
+    return xrpl.dropsToXrp(balanceDrops);
+  } catch (error) {
+    // Unfunded/new accounts throw actNotFound — treat as 0 balance
+    if (error?.data?.error === 'actNotFound') {
+      return 0;
+    }
+    throw error;
+  }
 };
 
-//send xrp
+// send xrp
 export const sendXRP = async ({ senderSeed, destination, amount }) => {
   await connectXRPL();
 
@@ -55,10 +60,21 @@ export const sendXRP = async ({ senderSeed, destination, amount }) => {
 
   const result = await client.submitAndWait(signed.tx_blob);
 
-  //network fees
+  // network fees
   const networkFeeDrops = prepared.Fee;
-
   const networkFeeXRP = xrpl.dropsToXrp(networkFeeDrops);
+
+  // CRITICAL: validate the transaction actually succeeded on-ledger.
+  // submitAndWait resolves even for tec-class failures (funds not moved).
+  const transactionResult = result?.result?.meta?.TransactionResult;
+
+  if (transactionResult !== 'tesSUCCESS') {
+    const err = new Error(
+      `XRPL transaction did not succeed: ${transactionResult || 'unknown result'}`
+    );
+    err.xrplResult = result;
+    throw err;
+  }
 
   return {
     result,
@@ -79,7 +95,6 @@ export const getLedgerInfo = async (ledger_index) => {
     return response.result;
   } catch (error) {
     console.error('Get ledger info error:', error);
-
     throw error;
   }
 };
