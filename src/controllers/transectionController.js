@@ -275,24 +275,27 @@ export const getbalance = async (req, res) => {
 //get swift messages by message id
 export const getSwiftMessageById = async (req, res) => {
   try {
-    const { messageId } = req.params;
+    const { txHash } = req.params;
 
-    //find swift message by messageId
-    const swiftMessage = await SwiftMessage.findOne({ messageId });
-
-    if (!swiftMessage) {
-      return res.status(404).json({
-        message: 'Swift message not found',
-      });
+    if (!txHash) {
+      return res.status(400).json({ message: 'txHash is required' });
     }
 
-    res.status(200).json({
-      swiftMessage,
+    console.log('Fetching Swift message for txHash:', txHash);
+
+    const swiftMessage = await SwiftMessage.findOne({
+      txHash: txHash,
     });
+
+    console.log('Swift message found:', swiftMessage);
+
+    if (!swiftMessage) {
+      return res.status(404).json({ message: 'Swift message not found' });
+    }
+
+    res.status(200).json({ swiftMessage });
   } catch (error) {
     console.error('Error fetching Swift message:', error);
-    res.status(500).json({
-      message: 'Failed to fetch Swift message',
-    });
+    res.status(500).json({ message: 'Failed to fetch Swift message' });
   }
 };

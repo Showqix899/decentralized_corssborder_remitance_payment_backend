@@ -23,6 +23,6 @@ router.get('/analytics', getTransactionAnalytics);
 router.get('/:id', protect, getTransectionById);
 
 //get swift message by id
-router.get('/swift/:id', protect, getSwiftMessageById);
+router.get('/swift/:txHash', protect, getSwiftMessageById);
 
 export default router;
