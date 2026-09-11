@@ -1,17 +1,32 @@
 import crypto from 'crypto';
 
-export const generateSwiftMXMessage = ({
+import SwiftMessage from '../models/SwiftMessage.js';
+
+export const generateSwiftMXMessage = async ({
   sender,
-
   receiver,
-
+  senderCountry,
+  receiverCountry,
   amount,
-
   sourceCurrency,
-
   destinationCurrency,
+  txHash,
+  ledgerIndex,
 }) => {
   const messageId = crypto.randomUUID();
+
+  await SwiftMessage.create({
+    messageId,
+    sender: sender._id,
+    receiver: receiver._id,
+    senderCountry,
+    receiverCountry,
+    amount,
+    sourceCurrency,
+    destinationCurrency,
+    txHash,
+    ledgerIndex,
+  });
 
   return {
     messageType: 'pacs.008',

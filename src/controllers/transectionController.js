@@ -1,6 +1,7 @@
 //db models
 import User from '../models/User.js';
 import Transection from '../models/Transection.js';
+import SwiftMessage from '../models/SwiftMessage.js';
 
 //queue
 import xrpleQueue from '../queues/sendXrplQueue.js';
@@ -268,5 +269,30 @@ export const getbalance = async (req, res) => {
     });
   } catch (error) {
     console.log(error.message);
+  }
+};
+
+//get swift messages by message id
+export const getSwiftMessageById = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+
+    //find swift message by messageId
+    const swiftMessage = await SwiftMessage.findOne({ messageId });
+
+    if (!swiftMessage) {
+      return res.status(404).json({
+        message: 'Swift message not found',
+      });
+    }
+
+    res.status(200).json({
+      swiftMessage,
+    });
+  } catch (error) {
+    console.error('Error fetching Swift message:', error);
+    res.status(500).json({
+      message: 'Failed to fetch Swift message',
+    });
   }
 };

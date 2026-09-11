@@ -26,6 +26,7 @@ import {
   calculateFXFee,
 } from '../services/exchangeRateService.js';
 import { runAMLChecks, determineAMLStatus } from '../services/amlService.js';
+
 import { generateSwiftMXMessage } from '../services/swiftMXServices.js';
 
 // MODELS
@@ -167,18 +168,6 @@ const xrplPaymentWorker = new Worker(
       freshSender.amlReasons = [];
       await freshSender.save();
 
-      const swiftMessage = generateSwiftMXMessage({
-        sender: freshSender,
-
-        receiver: freshReceiver,
-
-        amount,
-
-        sourceCurrency,
-
-        destinationCurrency,
-      });
-
       await ComplianceLog.create({
         sender: freshSender._id,
 
@@ -263,6 +252,26 @@ const xrplPaymentWorker = new Worker(
           Number(amount) *
             (await getExchangeInfo(sourceCurrency, 'USD', 1)).exchangeRate +
           networkFeeUSD;
+
+        //swift message generation
+        const swiftMessage = generateSwiftMXMessage({
+          sender: freshSender,
+
+          receiver: freshReceiver,
+
+          senderCountry: freshSender.country,
+
+          receiverCountry: freshReceiver.country,
+
+          amount,
+
+          sourceCurrency,
+
+          destinationCurrency,
+
+          txHash: txHash,
+          ledgerIndex: ledgerIndex,
+        });
 
         // SAVE TRANSACTION
         const transection = await Transection.create({
